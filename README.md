@@ -19,3 +19,13 @@ npm run dev
 ```
 
 Open the Vite URL in a browser. Camera scanning works best in Chrome/Edge on Android or a secure localhost page.
+
+## GitHub Pages
+
+This repository is configured to deploy from GitHub Actions to:
+
+```text
+https://preetham078.github.io/shopkey/
+```
+
+In GitHub, open **Settings > Pages** and set **Build and deployment** to **GitHub Actions**. Each push to `main` will build and deploy the app.
