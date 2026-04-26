@@ -19,11 +19,24 @@ import "./styles.css";
 const STORAGE_KEY = "shopkey-store-v1";
 
 const starterProducts = [
-  { barcode: "8901030875623", name: "Aashirvaad Atta 1kg", price: 68, stock: 24 },
-  { barcode: "8901058846810", name: "Parle-G Biscuit", price: 10, stock: 80 },
-  { barcode: "8901764012459", name: "Amul Taaza Milk 500ml", price: 28, stock: 36 },
-  { barcode: "8901491101142", name: "Tata Salt 1kg", price: 25, stock: 42 },
+  { barcode: "100001", name: "Loose Rice 1kg", price: 60, stock: 50, unit: "kg" },
+  { barcode: "8901030875623", name: "Aashirvaad Atta 1kg", price: 68, stock: 24, unit: "kg" },
+  { barcode: "8901058846810", name: "Parle-G Biscuit", price: 10, stock: 80, unit: "piece" },
+  { barcode: "8901764012459", name: "Amul Taaza Milk 500ml", price: 28, stock: 36, unit: "piece" },
+  { barcode: "8901491101142", name: "Tata Salt 1kg", price: 25, stock: 42, unit: "kg" },
 ];
+
+function normalizeProduct(product) {
+  const name = product.name?.toLowerCase() ?? "";
+  const looksLikeKgProduct =
+    product.unit === undefined &&
+    /\b(kg|rice|atta|dal|sugar|flour|wheat|salt)\b/.test(name);
+
+  return {
+    ...product,
+    unit: product.unit === "kg" || looksLikeKgProduct ? "kg" : "piece",
+  };
+}
 
 function loadProducts() {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -31,7 +44,7 @@ function loadProducts() {
 
   try {
     const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) ? parsed : starterProducts;
+    return Array.isArray(parsed) ? parsed.map(normalizeProduct) : starterProducts;
   } catch {
     return starterProducts;
   }
@@ -43,6 +56,23 @@ function formatMoney(value) {
     currency: "INR",
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function formatQty(value, unit) {
+  if (unit === "kg") {
+    if (value < 1) return `${Math.round(value * 1000)} g`;
+    return `${Number(value.toFixed(3))} kg`;
+  }
+
+  return `${value}`;
+}
+
+function getLineTotal(item) {
+  return item.price * item.qty;
+}
+
+function getQtyStep(unit) {
+  return unit === "kg" ? 0.1 : 1;
 }
 
 function App() {
@@ -57,6 +87,7 @@ function App() {
     name: "",
     price: "",
     stock: "",
+    unit: "piece",
   });
 
   useEffect(() => {
@@ -83,8 +114,8 @@ function App() {
     );
   }, [products, query]);
 
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const itemCount = cart.reduce((sum, item) => sum + item.qty, 0);
+  const subtotal = cart.reduce((sum, item) => sum + getLineTotal(item), 0);
+  const itemCount = cart.length;
 
   function show(message) {
     setToast(message);
@@ -98,6 +129,7 @@ function App() {
       return;
     }
 
+    const step = getQtyStep(product.unit);
     const currentQty = cart.find((item) => item.barcode === product.barcode)?.qty ?? 0;
     if (currentQty >= product.stock) {
       show("No more stock available for this product.");
@@ -108,10 +140,12 @@ function App() {
       const existing = items.find((item) => item.barcode === product.barcode);
       if (existing) {
         return items.map((item) =>
-          item.barcode === product.barcode ? { ...item, qty: item.qty + 1 } : item
+          item.barcode === product.barcode
+            ? { ...item, qty: Number(Math.min(item.qty + step, product.stock).toFixed(3)) }
+            : item
         );
       }
-      return [...items, { ...product, qty: 1 }];
+      return [...items, { ...product, qty: Math.min(step, product.stock) }];
     });
     show(`${product.name} added to bill`);
   }
@@ -122,7 +156,7 @@ function App() {
       items
         .map((item) => {
           if (item.barcode !== barcode) return item;
-          const nextQty = item.qty + change;
+          const nextQty = Number((item.qty + change).toFixed(3));
           if (product && nextQty > product.stock) {
             show("Stock limit reached.");
             return item;
@@ -130,6 +164,31 @@ function App() {
           return { ...item, qty: nextQty };
         })
         .filter((item) => item.qty > 0)
+    );
+  }
+
+  function setCartQty(barcode, value, inputUnit = "item") {
+    const product = productMap.get(barcode);
+    const numberValue = Number(value);
+
+    if (!Number.isFinite(numberValue) || numberValue <= 0) {
+      removeFromCart(barcode);
+      return;
+    }
+
+    const nextQty =
+      product?.unit === "kg" && inputUnit === "gram" ? numberValue / 1000 : numberValue;
+
+    if (product && nextQty > product.stock) {
+      show("Stock limit reached.");
+    }
+
+    setCart((items) =>
+      items.map((item) =>
+        item.barcode === barcode
+          ? { ...item, qty: Number(Math.min(nextQty, product?.stock ?? nextQty).toFixed(3)) }
+          : item
+      )
     );
   }
 
@@ -147,7 +206,7 @@ function App() {
       items.map((product) => {
         const billed = cart.find((item) => item.barcode === product.barcode);
         if (!billed) return product;
-        return { ...product, stock: Math.max(0, product.stock - billed.qty) };
+        return { ...product, stock: Number(Math.max(0, product.stock - billed.qty).toFixed(3)) };
       })
     );
     setCart([]);
@@ -159,9 +218,17 @@ function App() {
     const barcode = newProduct.barcode.trim();
     const name = newProduct.name.trim();
     const price = Number(newProduct.price);
-    const stock = Number.parseInt(newProduct.stock, 10);
+    const stock = Number(newProduct.stock);
+    const unit = newProduct.unit === "kg" ? "kg" : "piece";
 
-    if (!barcode || !name || !Number.isFinite(price) || price <= 0 || stock < 0) {
+    if (
+      !barcode ||
+      !name ||
+      !Number.isFinite(price) ||
+      price <= 0 ||
+      !Number.isFinite(stock) ||
+      stock < 0
+    ) {
       show("Enter valid product details.");
       return;
     }
@@ -170,12 +237,12 @@ function App() {
       const exists = items.some((item) => item.barcode === barcode);
       if (exists) {
         return items.map((item) =>
-          item.barcode === barcode ? { barcode, name, price, stock } : item
+          item.barcode === barcode ? { barcode, name, price, stock, unit } : item
         );
       }
-      return [{ barcode, name, price, stock }, ...items];
+      return [{ barcode, name, price, stock, unit }, ...items];
     });
-    setNewProduct({ barcode: "", name: "", price: "", stock: "" });
+    setNewProduct({ barcode: "", name: "", price: "", stock: "", unit: "piece" });
     show("Product saved.");
   }
 
@@ -195,7 +262,9 @@ function App() {
         </div>
         <div className="totals-chip">
           <ShoppingCart size={18} />
-          <span>{itemCount} items</span>
+          <span>
+            {itemCount} {itemCount === 1 ? "item" : "items"}
+          </span>
         </div>
       </header>
 
@@ -236,15 +305,41 @@ function App() {
                 <article className="cart-item" key={item.barcode}>
                   <div>
                     <h3>{item.name}</h3>
-                    <p>{item.barcode}</p>
+                    <p>
+                      {item.barcode} · {formatMoney(item.price)} per{" "}
+                      {item.unit === "kg" ? "kg" : "item"}
+                    </p>
                   </div>
-                  <strong>{formatMoney(item.price * item.qty)}</strong>
+                  <strong>{formatMoney(getLineTotal(item))}</strong>
                   <div className="qty-controls">
-                    <button aria-label="Decrease" onClick={() => updateQty(item.barcode, -1)}>
+                    <button
+                      aria-label="Decrease"
+                      onClick={() => updateQty(item.barcode, -getQtyStep(item.unit))}
+                    >
                       <Minus size={16} />
                     </button>
-                    <span>{item.qty}</span>
-                    <button aria-label="Increase" onClick={() => updateQty(item.barcode, 1)}>
+                    {item.unit === "kg" ? (
+                      <label className="weight-input">
+                        <input
+                          aria-label={`${item.name} grams`}
+                          inputMode="decimal"
+                          min="1"
+                          step="50"
+                          type="number"
+                          value={Math.round(item.qty * 1000)}
+                          onChange={(event) =>
+                            setCartQty(item.barcode, event.target.value, "gram")
+                          }
+                        />
+                        <span>g</span>
+                      </label>
+                    ) : (
+                      <span>{item.qty}</span>
+                    )}
+                    <button
+                      aria-label="Increase"
+                      onClick={() => updateQty(item.barcode, getQtyStep(item.unit))}
+                    >
                       <Plus size={16} />
                     </button>
                     <button aria-label="Remove" onClick={() => removeFromCart(item.barcode)}>
@@ -296,17 +391,26 @@ function App() {
                   setNewProduct((product) => ({ ...product, price: event.target.value }))
                 }
                 inputMode="decimal"
-                placeholder="Price"
+                placeholder="Price / item or kg"
               />
               <input
                 value={newProduct.stock}
                 onChange={(event) =>
                   setNewProduct((product) => ({ ...product, stock: event.target.value }))
                 }
-                inputMode="numeric"
+                inputMode="decimal"
                 placeholder="Stock"
               />
             </div>
+            <select
+              value={newProduct.unit}
+              onChange={(event) =>
+                setNewProduct((product) => ({ ...product, unit: event.target.value }))
+              }
+            >
+              <option value="piece">Sell by piece</option>
+              <option value="kg">Sell by kg / grams</option>
+            </select>
             <button type="submit">
               <PackagePlus size={18} />
               Save Product
@@ -332,7 +436,10 @@ function App() {
                   </div>
                   <div>
                     <strong>{formatMoney(product.price)}</strong>
-                    <span>{product.stock} left</span>
+                    <span>
+                      {formatQty(product.stock, product.unit)} left · per{" "}
+                      {product.unit === "kg" ? "kg" : "item"}
+                    </span>
                   </div>
                 </button>
               </article>

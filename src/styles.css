@@ -18,7 +18,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -65,7 +66,8 @@ h1 {
 .section-title,
 .search-box,
 .barcode-form,
-.qty-controls {
+.qty-controls,
+.weight-input {
   align-items: center;
   display: flex;
 }
@@ -151,7 +153,8 @@ h1 {
 
 .barcode-form input,
 .search-box input,
-.product-form input {
+.product-form input,
+.product-form select {
   background: transparent;
   border: 0;
   color: #15201c;
@@ -238,6 +241,30 @@ h1 {
   text-align: center;
 }
 
+.weight-input {
+  background: white;
+  border: 1px solid #dbe4d6;
+  border-radius: 6px;
+  gap: 4px;
+  height: 32px;
+  padding: 0 7px;
+}
+
+.weight-input input {
+  border: 0;
+  font-weight: 800;
+  min-width: 58px;
+  outline: 0;
+  text-align: right;
+  width: 58px;
+}
+
+.weight-input span {
+  color: #65746b;
+  font-size: 0.82rem;
+  min-width: auto;
+}
+
 .bill-footer {
   align-items: center;
   border-top: 1px solid #e2e8df;
@@ -274,11 +301,16 @@ h1 {
   margin-bottom: 14px;
 }
 
-.product-form input {
+.product-form input,
+.product-form select {
   background: #f8faf6;
   border: 1px solid #dce4d8;
   border-radius: 8px;
   padding: 0 12px;
+}
+
+.product-form select {
+  appearance: none;
 }
 
 .form-grid {
@@ -426,6 +458,10 @@ h1 {
   .scan-row,
   .cart-item {
     grid-template-columns: 1fr;
+  }
+
+  .qty-controls {
+    justify-content: space-between;
   }
 
   .primary-btn,
