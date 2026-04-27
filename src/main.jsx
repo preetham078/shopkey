@@ -4,12 +4,13 @@ import {
   Barcode,
   Camera,
   Check,
-  IndianRupee,
+  Download,
   Minus,
   PackagePlus,
   Plus,
   ReceiptText,
   Search,
+  Share2,
   ShoppingCart,
   Trash2,
   X,
@@ -73,6 +74,29 @@ function getLineTotal(item) {
 
 function getQtyStep(unit) {
   return unit === "kg" ? 0.1 : 1;
+}
+
+function buildBillText(cart, total) {
+  const date = new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date());
+
+  const lines = cart.map((item, index) => {
+    const qty = formatQty(item.qty, item.unit);
+    const priceUnit = item.unit === "kg" ? "kg" : "item";
+    return `${index + 1}. ${item.name}
+   ${qty} x ${formatMoney(item.price)} / ${priceUnit} = ${formatMoney(getLineTotal(item))}`;
+  });
+
+  return [
+    "ShopKey Billing",
+    `Bill Date: ${date}`,
+    "",
+    ...lines,
+    "",
+    `Total: ${formatMoney(total)}`,
+  ].join("\n");
 }
 
 function App() {
@@ -211,6 +235,52 @@ function App() {
     );
     setCart([]);
     show(`Bill completed: ${formatMoney(subtotal)}`);
+  }
+
+  function takeBill() {
+    if (!cart.length) {
+      show("Add items before taking the bill.");
+      return;
+    }
+
+    const receipt = buildBillText(cart, subtotal);
+    const blob = new Blob([receipt], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `shopkey-bill-${Date.now()}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    show("Bill saved.");
+  }
+
+  async function shareBill() {
+    if (!cart.length) {
+      show("Add items before sharing the bill.");
+      return;
+    }
+
+    const receipt = buildBillText(cart, subtotal);
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "ShopKey Bill",
+          text: receipt,
+        });
+        show("Bill shared.");
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(receipt);
+      show("Bill copied. Paste it to share.");
+    } catch {
+      show("Sharing is not available in this browser.");
+    }
   }
 
   function saveProduct(event) {
@@ -356,10 +426,20 @@ function App() {
               <span>Total Amount</span>
               <strong>{formatMoney(subtotal)}</strong>
             </div>
-            <button className="success-btn" onClick={completeBill}>
-              <Check size={19} />
-              Complete Bill
-            </button>
+            <div className="bill-actions">
+              <button className="secondary-btn" onClick={takeBill}>
+                <Download size={18} />
+                Take Bill
+              </button>
+              <button className="secondary-btn" onClick={shareBill}>
+                <Share2 size={18} />
+                Share
+              </button>
+              <button className="success-btn" onClick={completeBill}>
+                <Check size={19} />
+                Complete Bill
+              </button>
+            </div>
           </div>
         </div>
 

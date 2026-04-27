@@ -124,6 +124,7 @@ h1 {
 }
 
 .primary-btn,
+.secondary-btn,
 .success-btn,
 .product-form button,
 .barcode-form button {
@@ -292,6 +293,21 @@ h1 {
   color: #211809;
   min-height: 52px;
   padding: 0 18px;
+  white-space: nowrap;
+}
+
+.bill-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.secondary-btn {
+  background: #eef3eb;
+  color: #174234;
+  min-height: 52px;
+  padding: 0 14px;
   white-space: nowrap;
 }
 
@@ -464,9 +480,15 @@ h1 {
     justify-content: space-between;
   }
 
+  .bill-actions,
   .primary-btn,
+  .secondary-btn,
   .success-btn {
     width: 100%;
+  }
+
+  .bill-actions {
+    justify-content: stretch;
   }
 
   .product-card button {
