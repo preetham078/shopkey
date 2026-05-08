@@ -220,31 +220,6 @@ function App() {
     setCart((items) => items.filter((item) => item.barcode !== barcode));
   }
 
-  function setCartPrice(barcode, value) {
-    const price = Number(value);
-    if (!Number.isFinite(price) || price <= 0) {
-      show("Enter a valid price.");
-      return;
-    }
-
-    setCart((items) =>
-      items.map((item) => (item.barcode === barcode ? { ...item, price } : item))
-    );
-  }
-
-  function editCartItem(barcode) {
-    const item = cart.find((product) => product.barcode === barcode);
-    if (!item) return;
-
-    setNewProduct({
-      barcode: item.barcode,
-      name: item.name,
-      price: String(item.price),
-      stock: String(productMap.get(item.barcode)?.stock ?? item.qty),
-      unit: item.unit,
-    });
-  }
-
   function completeBill() {
     if (!cart.length) {
       show("Add items before completing the bill.");
@@ -337,21 +312,8 @@ function App() {
       }
       return [{ barcode, name, price, stock, unit }, ...items];
     });
-    setCart((items) =>
-      items.map((item) =>
-        item.barcode === barcode
-          ? {
-              ...item,
-              name,
-              price,
-              unit,
-              qty: Number(Math.min(item.qty, stock).toFixed(3)),
-            }
-          : item
-      )
-    );
     setNewProduct({ barcode: "", name: "", price: "", stock: "", unit: "piece" });
-    show(products.some((item) => item.barcode === barcode) ? "Product updated." : "Product saved.");
+    show("Product saved.");
   }
 
   function scanManualCode(event) {
@@ -414,35 +376,14 @@ function App() {
                   <div>
                     <h3>{item.name}</h3>
                     <p>
-                      {item.barcode} · per{" "}
+                      {item.barcode} · {formatMoney(item.price)} per{" "}
                       {item.unit === "kg" ? "kg" : "item"}
                     </p>
-                    <label className="price-input">
-                      <span>Price</span>
-                      <input
-                        aria-label={`${item.name} price`}
-                        defaultValue={item.price}
-                        inputMode="decimal"
-                        min="0.01"
-                        step="0.01"
-                        type="number"
-                        onBlur={(event) => setCartPrice(item.barcode, event.target.value)}
-                      />
-                    </label>
                   </div>
                   <strong>{formatMoney(getLineTotal(item))}</strong>
                   <div className="qty-controls">
                     <button
-                      aria-label="Edit item"
-                      className="cart-edit-btn"
-                      type="button"
-                      onClick={() => editCartItem(item.barcode)}
-                    >
-                      Edit
-                    </button>
-                    <button
                       aria-label="Decrease"
-                      type="button"
                       onClick={() => updateQty(item.barcode, -getQtyStep(item.unit))}
                     >
                       <Minus size={16} />
@@ -467,16 +408,11 @@ function App() {
                     )}
                     <button
                       aria-label="Increase"
-                      type="button"
                       onClick={() => updateQty(item.barcode, getQtyStep(item.unit))}
                     >
                       <Plus size={16} />
                     </button>
-                    <button
-                      aria-label="Remove"
-                      type="button"
-                      onClick={() => removeFromCart(item.barcode)}
-                    >
+                    <button aria-label="Remove" onClick={() => removeFromCart(item.barcode)}>
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -573,7 +509,7 @@ function App() {
           <div className="product-list">
             {visibleProducts.map((product) => (
               <article className="product-card" key={product.barcode}>
-                <button className="product-card-main" onClick={() => addToCart(product.barcode)}>
+                <button onClick={() => addToCart(product.barcode)}>
                   <div>
                     <h3>{product.name}</h3>
                     <p>{product.barcode}</p>
@@ -585,13 +521,6 @@ function App() {
                       {product.unit === "kg" ? "kg" : "item"}
                     </span>
                   </div>
-                </button>
-                <button
-                  className="product-card-edit"
-                  type="button"
-                  onClick={() => startEditingProduct(product)}
-                >
-                  Edit
                 </button>
               </article>
             ))}
