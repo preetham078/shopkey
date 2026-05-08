@@ -113,6 +113,8 @@ function App() {
     stock: "",
     unit: "piece",
   });
+  const holdTimerRef = useRef(null);
+  const suppressNextTapRef = useRef(false);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
@@ -143,6 +145,18 @@ function App() {
 
   function show(message) {
     setToast(message);
+  }
+
+  function startProductHold(barcode) {
+    window.clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = window.setTimeout(() => {
+      suppressNextTapRef.current = true;
+      removeProduct(barcode);
+    }, 700);
+  }
+
+  function cancelProductHold() {
+    window.clearTimeout(holdTimerRef.current);
   }
 
   function addToCart(barcode) {
@@ -287,6 +301,7 @@ function App() {
     event.preventDefault();
     const barcode = newProduct.barcode.trim();
     const name = newProduct.name.trim();
+    const normalizedName = name.toLowerCase();
     const price = Number(newProduct.price);
     const stock = Number(newProduct.stock);
     const unit = newProduct.unit === "kg" ? "kg" : "piece";
@@ -304,16 +319,46 @@ function App() {
     }
 
     setProducts((items) => {
-      const exists = items.some((item) => item.barcode === barcode);
-      if (exists) {
+      const existingProduct = items.find(
+        (item) => item.barcode === barcode || item.name.toLowerCase() === normalizedName
+      );
+      if (existingProduct) {
         return items.map((item) =>
-          item.barcode === barcode ? { barcode, name, price, stock, unit } : item
+          item.barcode === existingProduct.barcode
+            ? { barcode, name, price, stock, unit }
+            : item
         );
       }
       return [{ barcode, name, price, stock, unit }, ...items];
     });
+    setCart((items) =>
+      items.map((item) =>
+        item.barcode === barcode || item.name.toLowerCase() === normalizedName
+          ? {
+              ...item,
+              barcode,
+              name,
+              price,
+              unit,
+              qty: Number(Math.min(item.qty, stock).toFixed(3)),
+            }
+          : item
+      )
+    );
     setNewProduct({ barcode: "", name: "", price: "", stock: "", unit: "piece" });
     show("Product saved.");
+  }
+
+  function removeProduct(barcode) {
+    const product = productMap.get(barcode);
+    const shouldRemove = window.confirm(
+      `Remove ${product?.name ?? "this product"} from inventory?`
+    );
+    if (!shouldRemove) return;
+
+    setProducts((items) => items.filter((item) => item.barcode !== barcode));
+    setCart((items) => items.filter((item) => item.barcode !== barcode));
+    show("Product removed.");
   }
 
   function scanManualCode(event) {
@@ -321,6 +366,14 @@ function App() {
     if (!manualCode.trim()) return;
     addToCart(manualCode);
     setManualCode("");
+  }
+
+  function handleProductCardClick(barcode) {
+    if (suppressNextTapRef.current) {
+      suppressNextTapRef.current = false;
+      return;
+    }
+    addToCart(barcode);
   }
 
   return (
@@ -509,7 +562,16 @@ function App() {
           <div className="product-list">
             {visibleProducts.map((product) => (
               <article className="product-card" key={product.barcode}>
-                <button onClick={() => addToCart(product.barcode)}>
+                <button
+                  className="product-card-main"
+                  onClick={() => handleProductCardClick(product.barcode)}
+                  onMouseDown={() => startProductHold(product.barcode)}
+                  onMouseUp={cancelProductHold}
+                  onMouseLeave={cancelProductHold}
+                  onTouchStart={() => startProductHold(product.barcode)}
+                  onTouchEnd={cancelProductHold}
+                  onTouchCancel={cancelProductHold}
+                >
                   <div>
                     <h3>{product.name}</h3>
                     <p>{product.barcode}</p>

@@ -350,12 +350,17 @@ h1 {
   padding-right: 2px;
 }
 
-.product-card button {
+.product-card {
+  display: block;
+}
+
+.product-card-main {
   align-items: center;
   background: #fbfcfa;
   border: 1px solid #e1e8df;
   border-radius: 8px;
   color: inherit;
+  cursor: pointer;
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -364,7 +369,7 @@ h1 {
   width: 100%;
 }
 
-.product-card button:hover {
+.product-card-main:hover {
   border-color: #8fac9f;
 }
 
@@ -491,7 +496,7 @@ h1 {
     justify-content: stretch;
   }
 
-  .product-card button {
+  .product-card-main {
     align-items: flex-start;
   }
 }
