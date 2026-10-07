@@ -2,6 +2,8 @@
 
 A small provision-store billing app for shopkeepers.
 
+Website is live here:https://preetham078.github.io/shopkey/
+
 ## Features
 
 - Scan product barcode with the phone camera.
